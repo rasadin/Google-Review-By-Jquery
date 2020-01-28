@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Google Reviews Demo</title>
+
+  <!-- JQUERY IS REQUIRED -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+  <!-- DO NOT FORGET TO SET YOUR OWN API KEY!  -->
+  <!-- Create an API key: -->
+  <!-- https://console.developers.google.com/apis/library/places-backend.googleapis.com/?q=places -->
+  <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places&key=AIzaSyDJ_F1D65ytya8Wgr0jzjnJxl_oiwioF-g"></script> 
+  <!-- <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places&key=This_part_is_google_console_api_key"></script>  -->
+  <!-- load the plugin/script -->
+  <script>
+  (function($) {
+    $.fn.googlePlaces = function(options) {
+      // This is the easiest way to have default options.
+      var settings = $.extend({
+        // These are the defaults.
+        header: "<h3>Google Reviews</h3>",
+        footer: 'Thank you',
+        maxRows: 5,
+        minRating: 3,
+        months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        textBreakLength: "90",
+        shortenNames: true,
+        placeId: "ChIJ5-iNR0xd1moRfgJgKmLmiL4",
+        moreReviewsButtonUrl: '',
+        moreReviewsButtonLabel: 'Show More Reviews',
+        writeReviewButtonUrl: '',
+        writeReviewButtonLabel: 'Write New Review',
+        showReviewDate: true,
+        showProfilePicture: true
+      }, options);
+
+      var targetDiv = this[0];
+      var targetDivJquery = this;
+
+      var renderMoreReviewsButton = function() {
+        return '<div class="more-reviews"><a href="'+settings.moreReviewsButtonUrl+'" target="_blank">'+settings.moreReviewsButtonLabel+'</a></div>';   
+      };
+
+      var renderWriteReviewButton = function() {
+        return '<div class="write-review"><a href="'+settings.writeReviewButtonUrl+'" target="_blank">'+settings.writeReviewButtonLabel+'</a></div>';   
+      };
+
+      var renderPicture = function(picture) {
+        return "<img class='review-picture' src='"+picture+"'>";
+      }
+
+      var renderHeader = function(header) {
+        var html = "";
+        html += header + "<br>";
+        targetDivJquery.append(html);
+      };
+
+      var renderFooter = function(footer) {
+        var html = "";
+        var htmlButtons = "";
+
+        if (settings.moreReviewsButtonUrl) {
+          htmlButtons += renderMoreReviewsButton();
+        }
+        if (settings.writeReviewButtonUrl) {
+          htmlButtons += renderWriteReviewButton();
+        }
+        if (htmlButtons != "") {
+          html += '<div class="buttons">'+htmlButtons+'</div>';
+        }
+        
+        html += "<br>" + footer + "<br>";
+        targetDivJquery.after(html);
+      };
+
+      var shortenName = function(name) {
+        if (name.split(" ").length > 1) {
+          var shortenedName = "";
+          shortenedName = name.split(" ");
+          var lastNameFirstLetter = shortenedName[1][0];
+          var firstName = shortenedName[0];
+          if (lastNameFirstLetter == ".") {
+            return firstName;
+          } else {
+            return firstName + " " + lastNameFirstLetter + ".";
+          }
+        } else if (name != undefined) {
+          return name;
+        } else {
+          return '';
+        }
+      };
+
+      var renderStars = function(rating) {
+        var stars = '<div class="review-stars"><ul>';
+        // fills gold stars
+        for (var i = 0; i < rating; i++) {
+          stars += '<li><i class="star"></i></li>';
+        }
+        // fills empty stars
+        if (rating < 5) {
+          for (var i = 0; i < (5 - rating); i++) {
+            stars += '<li><i class="star inactive"></i></li>';
+          }
+        }
+        stars += "</ul></div>";
+        return stars;
+      };
+
+      var convertTime = function(UNIX_timestamp) {
+        var newDate = new Date(UNIX_timestamp * 1000);
+        var months = settings.months;
+        var time = newDate.getDate() + ". " + months[newDate.getMonth()] + " " + newDate.getFullYear();
+        return time;
+      };
+
+      var filterReviewsByMinRating = function(reviews) {
+        if (reviews === void 0) {
+          return [];
+        } else {
+          for (var i = reviews.length - 1; i >= 0; i--) {
+            var review = reviews[i];
+            if (review.rating < settings.minRating) {
+              reviews.splice(i, 1);
+            }
+          }
+          return reviews;
+        }
+      };
+
+      var sortReviewsByDateDesc = function(reviews) {
+        if (typeof reviews != "undefined" && reviews != null && reviews.length != null && reviews.length > 0) {
+          return reviews.sort(function(a,b) {return (a.time > b.time) ? 1 : ((b.time > a.time) ? -1 : 0);} ).reverse();
+        } else {
+          return []
+        }
+      }
+
+      var renderReviews = function(reviews) {
+        reviews.reverse();
+        var html = "";
+        var rowCount = (settings.maxRows > 0) ? settings.maxRows - 1 : reviews.length - 1;
+        
+        rowCount = (rowCount > reviews.length - 1) ? reviews.length - 1 : rowCount;
+        for (var i = rowCount; i >= 0; i--) {
+          var review = reviews[i];
+          var stars = renderStars(review.rating);
+          var date = convertTime(review.time);
+          var name = settings.shortenNames ? shortenName(review.author_name) : review.author_name;
+          var style = (review.text.length > parseInt(settings.textBreakLength)) ? "review-item-long" : "review-item";
+
+          //this part for single review url 
+          var single_review_url_first_part = review.author_url;   
+          var arr = single_review_url_first_part.split('reviews')[0];
+          var single_review_url_second_part = "place/";
+          var reviewId = 'ChIJ5-iNR0xd1moRfgJgKmLmiL4'; //this is review id collect from single review url
+          var single_review_url = arr + single_review_url_second_part + reviewId;
+          console.log(single_review_url);
+          //this part for single review url 
+          
+          var picture = "";
+          if(settings.showProfilePicture) {
+            picture = renderPicture(review.profile_photo_url); 
+          }
+          console.log(review);
+
+          html = html + "<a href="+single_review_url +"><div class="+ style +"><div class='review-header'>"+"<br><span class='review-date'>"+date+"</span>"+ picture +"<div class='review-usergrade'><div class='review-meta'><span class='review-author'>" + name + "</span><span class='review-sep'></span>" + "</div>" + stars + "</div></div><p class='review-text'>" + review.text + "</p> </div></a>";
+          // I do not need to display the date... but if you do:
+          //+"<br><span class='review-date'>"+date+"</span>"+
+        }
+        targetDivJquery.append(html);
+      };
+
+      // GOOGLE PLACES API CALL STARTS HERE
+
+      // initiate a Google Places Object
+      var service = new google.maps.places.PlacesService(targetDiv);
+      // set.getDetails takes 2 arguments: request, callback
+      // see documentation here:  https://developers.google.com/maps/documentation/javascript/3.exp/reference#PlacesService
+      const request = {
+        placeId: settings.placeId
+      };
+      // the callback is what initiates the rendering if Status returns OK
+      var callback = function(place, status) {
+        if (status == google.maps.places.PlacesServiceStatus.OK) {
+          var filteredReviews = filterReviewsByMinRating(place.reviews);
+          var sortedReviews = sortReviewsByDateDesc(filteredReviews);
+          if (sortedReviews.length > 0) {
+            renderHeader(settings.header);
+            renderReviews(sortedReviews);
+            renderFooter(settings.footer);
+            renderMoreReviewsButton(settings);
+          }
+        }
+      }
+
+      return this.each(function() {
+        // Runs the Plugin
+        if (settings.placeId === undefined || settings.placeId === "") {
+          console.error("NO PLACE ID DEFINED");
+          return
+        }
+        service.getDetails(request, callback);
+      });
+    };
+  }(jQuery)); 
+  </script>
+
+  <!-- load the css to display the reviews beautifully -->
+  <style>
+  #google-reviews {
+    display: flex;
+    flex-wrap: wrap;
+    /*display: grid;*/
+    /*grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));*/
+  }
+
+  .review-item {
+    border: solid 1px rgba(190, 190, 190, .35);
+    margin: 0 auto;
+    padding: 1em;
+    flex: 1 1 50%;
+    display: flex;
+    flex-direction: column;
+    align-content: stretch;
+  }
+
+  @media ( max-width:1200px) {
+    .review-item {
+      flex: 1 1 50%;
+    }
+  }
+
+  @media ( max-width:450px) {
+    .review-item {
+      flex: 1 1 90%;
+    }
+  }
+
+  .review-item-long {
+    border: solid 1px rgba(190, 190, 190, .35);
+    margin: 0 auto;
+    padding: 1em;
+    flex: 1 1 90%;
+    display: flex;
+    flex-direction: column;
+    align-content: stretch;
+  }
+
+  @media ( max-width:1200px) {
+    .review-item-long {
+      flex: 1 1 90%;
+    }
+  }
+
+  @media ( max-width:450px) {
+    .review-item-long {
+      flex: 1 1 90%;
+    }
+  }
+
+  .review-header{
+    display: flex;
+  }
+
+  .review-picture{
+    width: 5em;
+    height: auto;
+    align-self: center;
+    margin-right: 1em;
+  }
+
+  .review-usergrade{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .review-meta, .review-stars {
+    text-align: center;
+    font-size: 115%;
+  }
+
+  .review-author {
+    text-transform: capitalize;
+    font-weight: bold;
+  }
+
+  .review-date {
+    opacity: .6;
+    display: block;
+  }
+
+  .review-text {
+    line-height: 1.55;
+    text-align: left;
+    max-width: 100%;
+    text-align: justify;
+  }
+
+  .review-stars ul {
+    display: inline-block;
+    list-style: none !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .review-stars ul li {
+    float: left;
+    list-style: none !important;
+    margin-right: 1px;
+    line-height: 1;
+  }
+
+  .review-stars ul li i {
+    color: #eb6e00;
+    /* Google's Star Orange in Nov 2017 */
+    font-size: 1.4em;
+    font-style: normal;
+  }
+
+  .review-stars ul li i.inactive {
+    color: #c6c6c6;
+  }
+
+  .star:after {
+    content: "\2605";
+  }
+
+
+  .buttons {
+    margin: 20px 0 0 0; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .more-reviews {
+    text-align: center;
+  }
+
+  .write-review {
+    text-align: center;
+  }
+
+  .more-reviews a,
+  .write-review a {
+    margin: 5px;
+    border: 1px #eb6e00 solid;
+    border-radius: 40px;
+    padding: 10px;
+    background-color: #eb6e00;
+    color: #FFF;
+    text-decoration: none;
+  }
+  </style>
+</head>
+
+<body>
+  <!-- the plugin needs an id to interact with, best with an empty div -->
+  <div id="google-reviews"></div>
+  <script>
+    jQuery(document).ready(function($) {
+      if ($("#google-reviews").length == 0) {
+        return
+      }
+      //Find a placeID via https://developers.google.com/places/place-id
+      $("#google-reviews").googlePlaces({
+        placeId: 'ChIJ5-iNR0xd1moRfgJgKmLmiL4', //This is place Id
+        // add more settings here
+      });
+    });
+  </script>
+</body>
+
+</html>
